@@ -11,7 +11,7 @@
 
 A practical collection of **IPMItool commands, ready-to-run scripts, hands-on labs and a Windows build of ipmitool** for troubleshooting Linux-based servers and data-center hardware through the BMC.
 
-> **No server to practice on?** Open the dark-theme **[Interactive Practice Lab](https://kumar-narsaraju.github.io/ipmi-bmc-toolkit/)** (simulated BMC, runs in your browser).
+> **No server to practice on?** Open the dark-theme **[Interactive Practice Lab](https://github.com/kumar-narsaraju/ipmi-bmc-toolkit/blob/main/docs/index.html)** (simulated BMC, runs in your browser).
 
 ## Contents
 

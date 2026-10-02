@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IPMI / BMC Practice Lab</title>
+<style>
+:root{--bg:#0b0f14;--cd:#121821;--ln:#1f2937;--tx:#e6edf3;--mu:#8b98a9;--ac:#3fb950;--bl:#58a6ff}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,sans-serif;padding:20px}
+.w{max-width:1000px;margin:0 auto}h1{font-size:24px}h1 span{color:var(--ac)}p.s{color:var(--mu);margin:6px 0 18px;font-size:14px}
+.g{display:grid;grid-template-columns:1fr 280px;gap:14px}@media(max-width:800px){.g{grid-template-columns:1fr}}
+.t,.l{background:var(--cd);border:1px solid var(--ln);border-radius:12px}
+.t{font:13px/1.45 ui-monospace,Consolas,monospace;padding:14px;height:480px;overflow:auto;cursor:text}
+#o{white-space:pre-wrap;word-break:break-word}.c{color:var(--ac)}.e{color:#f85149}
+.in{display:flex;gap:8px}.in span{color:var(--ac);white-space:nowrap}
+#i{flex:1;background:none;border:0;outline:0;color:var(--tx);font:inherit;min-width:0}
+.l{padding:14px}.l h2{font-size:14px;margin-bottom:10px;color:var(--bl)}
+.l button{display:block;width:100%;text-align:left;margin-bottom:8px;padding:9px 10px;background:var(--bg);color:var(--mu);border:1px solid var(--ln);border-radius:8px;font:12.5px ui-monospace,Consolas,monospace;cursor:pointer}
+.l button:hover{border-color:var(--ac);color:var(--tx)}.l button.d{border-color:var(--ac);color:var(--ac)}.l button.d::before{content:"✓ "}
+.l small{color:var(--mu)}
+</style></head><body><div class="w">
+<h1><span>//</span> IPMI / BMC Practice Lab</h1>
+<p class="s">A simulated BMC for learning ipmitool. No real hardware is touched. Type a command, or click a lab step. Type <b>help</b> for the list.</p>
+<div class="g"><div class="t" id="t"><div id="o"></div><div class="in"><span>user@lab:~$</span><input id="i" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Terminal input"></div></div>
+<div class="l"><h2>Guided Labs</h2><div id="L"></div><small>Click a step to run it. Steps turn green when done.</small></div></div></div>
+<script>
+let on=true,sel=true,H=[],hp=0;const $=id=>document.getElementById(id),o=$('o'),i=$('i');
+const SEL=`   1 | 10/01/2026 | 08:12:44 | Temperature CPU1 Temp | Upper Non-critical going high | Asserted
+   2 | 10/01/2026 | 08:13:02 | Temperature CPU1 Temp | Upper Non-critical going high | Deasserted
+   3 | 10/01/2026 | 09:40:10 | Power Supply PSU2 Status | Power Supply AC lost | Asserted
+   4 | 10/01/2026 | 09:40:55 | Power Supply PSU2 Status | Power Supply AC lost | Deasserted`;
+const sdr=()=>`CPU1 Temp        | ${on?'58 degrees C':'no reading'} | ${on?'ok':'ns'}
+GPU1 Temp        | ${on?'66 degrees C':'no reading'} | ${on?'ok':'ns'}
+Inlet Temp       | 24 degrees C      | ok
+FAN1             | ${on?'8400 RPM':'0 RPM'}        | ${on?'ok':'ns'}
+FAN2             | ${on?'8350 RPM':'0 RPM'}        | ${on?'ok':'ns'}
+PSU1 Status      | 0x01              | ok
+PSU2 Status      | 0x01              | ok
+12V              | ${on?'12.06 Volts':'0 Volts'}     | ${on?'ok':'ns'}`;
+const C={
+'mc info':()=>`Device ID                 : 32
+Device Revision           : 1
+Firmware Revision         : 2.14
+IPMI Version              : 2.0
+Manufacturer Name         : Example Corp (simulated)
+Device Available          : yes
+Provides Device SDRs      : yes
+Additional Device Support :
+    Sensor Device
+    SDR Repository Device
+    SEL Device
+    FRU Inventory Device
+    Chassis Device`,
+'chassis status':()=>`System Power         : ${on?'on':'off'}
+Power Overload       : false
+Power Interlock      : inactive
+Main Power Fault     : false
+Power Control Fault  : false
+Power Restore Policy : always-on
+Last Power Event     :
+Chassis Intrusion    : inactive
+Front-Panel Lockout  : inactive`,
+'chassis power status':()=>`Chassis Power is ${on?'on':'off'}`,
+'chassis power on':()=>{on=true;return'Chassis Power Control: Up/On'},
+'chassis power off':()=>{on=false;return'Chassis Power Control: Down/Off'},
+'chassis power soft':()=>{on=false;return'Chassis Power Control: Soft'},
+'chassis power cycle':()=>{on=true;return'Chassis Power Control: Cycle'},
+'chassis power reset':()=>{on=true;return'Chassis Power Control: Reset'},
+'chassis identify 15':()=>'Chassis identify interval: 15 seconds',
+'sdr list':sdr,'sdr elist':sdr,'sensor list':sdr,
+'sdr type temperature':()=>sdr().split('\n').filter(x=>/Temp/.test(x)).join('\n'),
+'sdr type fan':()=>sdr().split('\n').filter(x=>/FAN/.test(x)).join('\n'),
+'sel info':()=>`SEL Information
+Version          : 2.0 (v1.5, v2 compliant)
+Entries          : ${sel?4:0}
+Free Space       : ${sel?'15872':'16384'} bytes`,
+'sel list':()=>sel?SEL:'SEL has no entries','sel elist':()=>sel?SEL:'SEL has no entries',
+'sel clear':()=>{sel=false;return'Clearing SEL.  Please allow a few seconds to erase.'},
+'fru print':()=>`FRU Device Description : Builtin FRU Device (ID 0)
+ Board Mfg             : Example Corp
+ Board Product         : Server Board (simulated)
+ Board Serial          : SIM123456789
+ Product Part Number   : SIM-0001`,
+'lan print 1':()=>`Set in Progress         : Set Complete
+IP Address Source       : Static Address
+IP Address              : 10.0.0.50
+Subnet Mask             : 255.255.255.0
+MAC Address             : 00:00:5e:00:53:01
+Default Gateway IP      : 10.0.0.1
+Cipher Suite Priv Max   : aaaaaaaaaaaaaaa`,
+'user list 1':()=>`ID  Name         Callin  Link Auth  IPMI Msg   Channel Priv Limit
+1                    true    false      false      NO ACCESS
+2   admin        true    true       true       ADMINISTRATOR
+3   readonly     true    true       true       USER`,
+'mc reset cold':()=>'Sent cold reset command to MC',
+'sol info':()=>`Set in Progress         : set-complete
+Enabled                 : true
+Volatile Bit Rate (kbps): 115.2`
+};
+const LABS=[['Talk to the BMC','mc info'],['Check chassis status','chassis status'],['Read sensors','sdr elist'],['Find temperatures','sdr type temperature'],['Read the event log','sel elist'],['Get serial numbers','fru print'],['Check BMC network','lan print 1'],['Audit users','user list 1'],['Blink locator LED','chassis identify 15'],['Power cycle (simulated)','chassis power cycle'],['Clear the event log','sel clear']];
+const done=new Set();
+function add(t,c){const d=document.createElement('div');if(c)d.className=c;d.textContent=t;o.appendChild(d)}
+function run(raw){add('user@lab:~$ '+raw,'c');const r=raw.trim();if(!r)return;H.push(r);hp=H.length;
+ if(r=='clear'){o.innerHTML='';return}
+ if(r=='help'||r=='?'){add('Try:\n'+Object.keys(C).map(k=>'  ipmitool '+k).join('\n')+'\n\nConnection flags are accepted and ignored, e.g. -I lanplus -H 10.0.0.50 -U admin -a');return}
+ if(!/^ipmitool\b/.test(r)){add(r.split(' ')[0]+': command not found. Start with "ipmitool" or type help.','e');return}
+ const k=r.replace(/^ipmitool/,'').replace(/-(I|H|U|P|L|C|p)\s+\S+/g,'').replace(/\s-(a|E|v)\b/g,' ').trim().replace(/\s+/g,' ').toLowerCase();
+ if(C[k]){add(C[k]());done.add(k);draw()}else add('Command not available in the simulator: "'+k+'". Type help.','e');
+ $('t').scrollTop=1e6}
+function draw(){$('L').innerHTML='';LABS.forEach(([n,c])=>{const b=document.createElement('button');b.textContent=n;b.title='ipmitool '+c;if(done.has(c))b.className='d';b.onclick=()=>run('ipmitool '+c);$('L').appendChild(b)})}
+i.addEventListener('keydown',e=>{if(e.key=='Enter'){const v=i.value;i.value='';run(v)}else if(e.key=='ArrowUp'&&hp>0){i.value=H[--hp]||'';e.preventDefault()}else if(e.key=='ArrowDown'){i.value=H[++hp]||'';e.preventDefault()}});
+$('t').onclick=()=>i.focus();draw();add('Simulated BMC ready. Try: ipmitool mc info','c');
+</script></body></html>
